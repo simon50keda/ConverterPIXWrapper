@@ -8,7 +8,7 @@ Wrapper add-on to use [ConverterPIX](https://github.com/mwl4/ConverterPIX) withi
 - Open "**User Preferences**"
 - On the buttom of the window click "**Install from File...**" and select downloaded ZIP
 - Enable the add-on by writting ***ConverterPIX*** in search bar and ticking the checkbox
-- Hit "**Save User Settings**"
+- Hit "**Save User Settings**", done!
 
 **NOTE:** If you are experienced user of Blender you can use any other preferred way to install this add-on.
 
