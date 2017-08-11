@@ -1,7 +1,7 @@
 ## ConverterPIXWrapper
 Wrapper add-on to use [ConverterPIX](https://github.com/mwl4/ConverterPIX) within the Blender and import SCS game models with ease.
 
-## Installation & prerequisite
+## Installation & prerequisites
 - Go to GitHub latest release page: **[link](../../releases/latest)**.
 - Download released ZIP file: **io_converter_pix_wrapper.zip**
 - Start Blender
