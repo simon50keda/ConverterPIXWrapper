@@ -28,6 +28,9 @@ if not os.path.isdir(CONVERTER_PIX_DIR):
 CONVERTER_PIX_PATH = os.path.join(CONVERTER_PIX_DIR, "converter_pix.exe")
 
 
+def path_join(path1, path2):
+	return os.path.join(path1, path2).replace("\\", "/")
+
 def update_converter_pix():
     """Downloads ConverterPIX from github and saves it to CONVERTER_PIX_PATH."""
 
@@ -134,7 +137,7 @@ class ConvPIXWrapperBrowserData(bpy.types.PropertyGroup):
                     if self.current_subpath != "/":
                         self.current_subpath = os.path.dirname(self.current_subpath)
                 else:
-                    self.current_subpath = os.path.join(self.current_subpath, active_file_entry.name)
+                    self.current_subpath = path_join(self.current_subpath, active_file_entry.name)
 
                 self.active_entry = -1
 
@@ -279,7 +282,7 @@ class ConvPIXWrapperListImport(bpy.types.Operator):
         from io_scs_tools.utils import get_scs_globals
 
         model_file_entry_name = self.model_browser_data.file_entries[self.model_browser_data.active_entry].name
-        model_archive_subpath = os.path.join(self.model_browser_data.current_subpath, model_file_entry_name)
+        model_archive_subpath = path_join(self.model_browser_data.current_subpath, model_file_entry_name)
 
         # collect all selected animations from animations browser
         anim_archive_subpaths = []
@@ -287,7 +290,7 @@ class ConvPIXWrapperListImport(bpy.types.Operator):
 
             for anim_file_entry in self.anim_browser_data.file_entries:
                 if anim_file_entry.do_import:
-                    anim_archive_subpaths.append(os.path.join(self.anim_browser_data.current_subpath, anim_file_entry.name[:-4]))
+                    anim_archive_subpaths.append(path_join(self.anim_browser_data.current_subpath, anim_file_entry.name[:-4]))
 
         # put together arguments for converter pix
         args = ["-b"]
@@ -304,7 +307,7 @@ class ConvPIXWrapperListImport(bpy.types.Operator):
         if not self.only_convert:
 
             pim_import_file = model_file_entry_name[:-4] + ".pim"
-            pim_import_dir = os.path.join(get_scs_globals().scs_project_path, self.model_browser_data.current_subpath[1:])
+            pim_import_dir = path_join(get_scs_globals().scs_project_path, self.model_browser_data.current_subpath[1:])
 
             bpy.ops.import_mesh.pim(files=[{"name": pim_import_file}], directory=pim_import_dir)
 
@@ -397,7 +400,7 @@ class ConvPIXWrapperImport(bpy.types.Operator, ImportHelper):
 
     def execute(self, context):
 
-        archive_paths = [{"name": os.path.join(self.directory, file.name)} for file in self.files]
+        archive_paths = [{"name": path_join(self.directory, file.name)} for file in self.files]
         bpy.ops.import_mesh.converter_pix_list_and_import("INVOKE_DEFAULT", archive_paths=archive_paths, only_convert=self.only_convert)
 
         return {'FINISHED'}
