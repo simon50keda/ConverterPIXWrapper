@@ -26,4 +26,4 @@ To be able to use ConverterPIXWrapper you will also have to install **SCS Blende
 * New dialog appears for browsing the archive and selecting the desired model:
    ![Selecting model & animations](/readme_images/archive-window.png)
   * NOTE: Additionally when working with animated model, you can also select animations you want to convert/import (as shown on image).
-* Find a model, select it and click **OK** to start conversion/import procedure!
+* When you found a model and selected it, click button **OK** to start conversion/import procedure!
