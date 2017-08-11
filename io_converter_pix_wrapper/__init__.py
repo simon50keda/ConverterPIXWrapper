@@ -293,8 +293,11 @@ class ConvPIXWrapperListImport(bpy.types.Operator):
                     anim_archive_subpaths.append(path_join(self.anim_browser_data.current_subpath, anim_file_entry.name[:-4]))
 
         # put together arguments for converter pix
-        args = ["-b"]
-        args.extend([archive_path.name for archive_path in self.archive_paths])
+        args = []
+
+        for archive_path in self.archive_paths:
+            args.extend(["-b", archive_path.name])
+
         args.extend(["-m", model_archive_subpath[:-4]])
         args.extend(anim_archive_subpaths)
         args.extend(["-e", get_scs_globals().scs_project_path])
