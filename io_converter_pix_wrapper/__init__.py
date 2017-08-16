@@ -29,7 +29,11 @@ CONVERTER_PIX_PATH = os.path.join(CONVERTER_PIX_DIR, "converter_pix.exe")
 
 
 def path_join(path1, path2):
-	return os.path.join(path1, path2).replace("\\", "/")
+    """Joins path1 with path2 and replaces backslashes with forward ones.
+    Needed for proper navigation inside archive tree on Windows.
+    """
+    return os.path.join(path1, path2).replace("\\", "/")
+
 
 def update_converter_pix():
     """Downloads ConverterPIX from github and saves it to CONVERTER_PIX_PATH."""
@@ -44,20 +48,22 @@ def run_converter_pix(args):
     1. On linux run it trough wine
     2. Mac OS X currently not supported
 
+    In case return code is different from 0, sth went wrong.
+
     :param args: Arguments for converter pix
     :type args: list[str]
-    :return: stdout from converter pix devided into lines; empty list on error or not supported OS
-    :rtype:  list[str]
+    :return: return code and stdout from converter pix devided into lines; empty list on error or not supported OS
+    :rtype:  tuple[int, list[str]]
     """
 
     if platform == "darwin":
         print("Mac OS X not supported at the moment!")
-        return []
+        return -1, []
 
     final_command = []
 
     if platform == "linux":
-        final_command.append("wine")
+        final_command.append("wine")  # TODO: maybe better check if wine exists at all?
 
     final_command.append(CONVERTER_PIX_PATH)
 
@@ -66,12 +72,21 @@ def run_converter_pix(args):
     print(final_command)
 
     result = subprocess.run(final_command, stdout=subprocess.PIPE)
+
+    # if there was some problem running converter pix just return empty list
+    if result.returncode != 0:
+        return result.returncode, []
+
+    # also return non-zero code if converter pix alone is reporting errors in output
+    if "<error>".encode("utf-8") in result.stdout:
+        return -1, result.stdout.decode("utf-8").split("\r\n")
+
     decoded_result = result.stdout.decode("utf-8").split("\r\n")
 
     for line in decoded_result:
         print(line)
 
-    return decoded_result
+    return result.returncode, decoded_result
 
 
 def get_archive_listdir(file_paths, current_subpath):
@@ -91,10 +106,13 @@ def get_archive_listdir(file_paths, current_subpath):
         args.extend(["-b", file_path])
 
     args.extend(["-listdir", current_subpath])
-    stdout = run_converter_pix(args)
+    retcode, stdout = run_converter_pix(args)
 
     dirs = []
     files = []
+
+    if retcode != 0:
+        print("Error getting archive directory listing output from ConverterPIX!")
 
     for line in stdout:
         if line.startswith("[D] "):
@@ -141,7 +159,7 @@ class ConvPIXWrapperBrowserData(bpy.types.PropertyGroup):
 
                 self.active_entry = -1
 
-            elif active_file_entry.name != "..":  # file was selected just return
+            elif active_file_entry.name != "..":  # file was selected just return and do nothing with selection
                 return
 
         # remove old entries
@@ -303,8 +321,19 @@ class ConvPIXWrapperListImport(bpy.types.Operator):
         args.extend(["-e", get_scs_globals().scs_project_path])
 
         # execute conversion
-        # TODO: handle bad arguments and eventual return codes different from 0
-        stdout = run_converter_pix(args)
+        retcode, stdout = run_converter_pix(args)
+
+        if retcode != 0:
+            msg = "ConverterPIX crashed or encountered error! Standard output returned:"
+            print(msg)
+            self.report({'ERROR'}, msg)
+
+            for line in stdout:
+                if line != "":
+                    print(line)
+                    self.report({'ERROR'}, line)
+
+            return {'CANCELLED'}
 
         # now do actual import with BT
         if not self.only_convert:
@@ -370,7 +399,7 @@ class ConvPIXWrapperListImport(bpy.types.Operator):
 
 class ConvPIXWrapperImport(bpy.types.Operator, ImportHelper):
     bl_idname = "import_mesh.converter_pix_import"
-    bl_label = "Import SCS Models - ConvPIX & BT (*.scs)"
+    bl_label = "Import SCS Models - ConverterPIX & BT (*.scs)"
     bl_description = "Converts and imports selected SCS model with the help of ConvPIX and SCS Blender Tools."
     bl_options = {'UNDO'}
 
@@ -463,7 +492,7 @@ class ConvPIXWrapperAddonPrefs(AddonPreferences):
 
 class ConvPIXWrapperUpdateEXE(bpy.types.Operator):
     bl_idname = "world.update_converter_pix_exe"
-    bl_label = "Update ConverterPIX File"
+    bl_label = "Update ConverterPIX Executable"
     bl_description = "Not sure if your ConverterPIX is up-to date? Use this button to download & update it!"
     bl_options = {'INTERNAL'}
 
