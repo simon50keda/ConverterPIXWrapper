@@ -29,3 +29,9 @@ To be able to use ConverterPIXWrapper you will also have to install **SCS Blende
    ![Selecting model & animations](/readme_images/archive-window.png)
   * NOTE: Additionally when working with animated model, you can also select animations you want to convert/import (as shown on image).
 * When you found a model and selected it, click button "**OK**" to start conversion/import procedure!
+
+## Additional Usage Tips
+Used archive list additionally enables you to remove or change order of added items:
+[Archive List Handling](/readme_images/archive-list-handling.png)
+
+To do that, you have to use selection buttons on side of each entry (green check arrow marks item as selected) and then desired actions can be executed upon them. Moving items will change the order how archives will be passed to ConverterPIX as base. First item in the list is given first, last item is given as last.
