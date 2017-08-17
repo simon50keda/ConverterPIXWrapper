@@ -2,7 +2,7 @@ bl_info = {
     "name": "ConverterPIX Wrapper for conversion & import of SCS Game Models",
     "description": "Wrapper add-on to use ConvPIX within the Blender and import SCS game models with ease.",
     "author": "Simon Lusenc (50keda)",
-    "version": (1, 0),
+    "version": (1, 3),
     "blender": (2, 78, 0),
     "location": "File > Import > SCS Models - ConverterPIX & BT (*.scs)",
     "category": "Import-Export",
@@ -66,7 +66,6 @@ def run_converter_pix(args):
         final_command.append("wine")  # TODO: maybe better check if wine exists at all?
 
     final_command.append(CONVERTER_PIX_PATH)
-
     final_command.extend(args)
 
     print(final_command)
