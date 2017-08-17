@@ -397,17 +397,48 @@ class ConvPIXWrapperListImport(bpy.types.Operator):
         )
 
 
+class ConvPIXWrapperArchiveToUse(bpy.types.PropertyGroup):
+    """Property group holding entry data for archives to use."""
+
+    path = StringProperty(description="Path to archive.")
+    selected = BoolProperty(description="Marking this path as selected. Once selected it can be deleted or moved in the list.")
+
+
 class ConvPIXWrapperImport(bpy.types.Operator, ImportHelper):
     bl_idname = "import_mesh.converter_pix_import"
     bl_label = "Import SCS Models - ConverterPIX & BT (*.scs)"
     bl_description = "Converts and imports selected SCS model with the help of ConvPIX and SCS Blender Tools."
-    bl_options = {'UNDO'}
+    bl_options = {'UNDO', 'PRESET'}
 
     directory = StringProperty()
 
     files = CollectionProperty(name="Selected Files",
                                description="File paths used for importing the SCS files",
                                type=bpy.types.OperatorFileListElement)
+
+    archives_to_use = CollectionProperty(name="Archives to Use",
+                                         description="Archives that should be used on conversion/import.",
+                                         type=ConvPIXWrapperArchiveToUse)
+
+    archives_to_use_mode = BoolProperty(
+        default=False,
+        description="Add currently selected files to list of archives to be used with ConverterPIX as bases."
+    )
+
+    delete_selected_archives_mode = BoolProperty(
+        default=False,
+        description="Delete selected archives from list."
+    )
+
+    move_up_selected_archives_mode = BoolProperty(
+        default=False,
+        description="Move selected archives up in the list."
+    )
+
+    move_down_selected_archives_mode = BoolProperty(
+        default=False,
+        description="Move selected archives down in the list."
+    )
 
     scs_project_path_mode = BoolProperty(
         default=False,
@@ -423,16 +454,74 @@ class ConvPIXWrapperImport(bpy.types.Operator, ImportHelper):
 
     def check(self, context):
 
-        if self.scs_project_path_mode:
+        if self.scs_project_path_mode:  # set SCS Project Base Path
 
             from io_scs_tools.utils import get_scs_globals
 
             get_scs_globals().scs_project_path = os.path.dirname(self.filepath)
             self.scs_project_path_mode = False
 
+        elif self.archives_to_use_mode:  # add selected archives from browser to archives list
+
+            curr_archives_to_use = [archive.path for archive in self.archives_to_use]
+
+            for file in self.files:
+
+                curr_filepath = path_join(self.directory, file.name)
+
+                # avoid duplicates
+                if curr_filepath in curr_archives_to_use:
+                    continue
+
+                new_archive_to_use = self.archives_to_use.add()
+                new_archive_to_use.path = curr_filepath
+
+            self.archives_to_use_mode = False
+
+        elif self.delete_selected_archives_mode:  # delete selected archives from list
+
+            i = 0
+            while i < len(self.archives_to_use):
+
+                if self.archives_to_use[i].selected:
+                    self.archives_to_use.remove(i)
+                    i -= 1
+
+                i += 1
+
+            self.delete_selected_archives_mode = False
+
+        elif self.move_up_selected_archives_mode:  # move up selected archives in the list
+
+            i = 0
+            while i < len(self.archives_to_use):
+
+                if self.archives_to_use[i].selected:
+
+                    if i - 1 >= 0 and not self.archives_to_use[i - 1].selected:
+                        self.archives_to_use.move(i, i - 1)
+
+                i += 1
+
+            self.move_up_selected_archives_mode = False
+
+        elif self.move_down_selected_archives_mode:  # move down selected archives in the list
+
+            i = len(self.archives_to_use) - 1
+            while i >= 0:
+
+                if self.archives_to_use[i].selected:
+
+                    if i + 1 < len(self.archives_to_use) and not self.archives_to_use[i + 1].selected:
+                        self.archives_to_use.move(i, i + 1)
+
+                i -= 1
+
+            self.move_down_selected_archives_mode = False
+
     def execute(self, context):
 
-        archive_paths = [{"name": path_join(self.directory, file.name)} for file in self.files]
+        archive_paths = [{"name": archive.path} for archive in self.archives_to_use]
         bpy.ops.import_mesh.converter_pix_list_and_import("INVOKE_DEFAULT", archive_paths=archive_paths, only_convert=self.only_convert)
 
         return {'FINISHED'}
@@ -452,6 +541,36 @@ class ConvPIXWrapperImport(bpy.types.Operator, ImportHelper):
         from io_scs_tools.utils import get_scs_globals
         from io_scs_tools.operators.world import SCSPathsInitialization
         from io_scs_tools import ImportSCS
+
+        files_box = self.layout.box()
+        files_box.row().label("Archives to Use:")
+
+        is_any_archive_selected = False
+        files_list_col = files_box.column(align=True)
+        if len(self.archives_to_use) > 0:
+            for archive in self.archives_to_use:
+
+                row = files_list_col.row(align=True)
+                path_col = row.column(align=True)
+                path_col.enabled = False
+                path_col.prop(archive, "path", text="")
+                row.prop(archive, "selected", text="", icon_only=True, icon="FILE_TICK" if archive.selected else "BLANK1")
+
+                is_any_archive_selected |= archive.selected
+
+        else:
+
+            files_list_col.label("No archives, at least one needed!", icon="ERROR")
+
+        # show controls of list only if sth is selected
+        if is_any_archive_selected:
+
+            row = files_list_col.row(align=True)
+            row.prop(self, "delete_selected_archives_mode", text="Remove", icon="PANEL_CLOSE")
+            row.prop(self, "move_up_selected_archives_mode", text="Up", icon="TRIA_UP")
+            row.prop(self, "move_down_selected_archives_mode", text="Down", icon="TRIA_DOWN")
+
+        files_list_col.prop(self, "archives_to_use_mode", toggle=True, text="Add Archives to List", icon='SCREEN_BACK')
 
         self.layout.box().prop(self, "only_convert")
 
