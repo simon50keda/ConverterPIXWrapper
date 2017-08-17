@@ -159,6 +159,9 @@ class ConvPIXWrapperBrowserData(bpy.types.PropertyGroup):
 
                 self.active_entry = -1
 
+                # abort execution here, as setting active entry to -1 will anyway trigger another update
+                return
+
             elif active_file_entry.name != "..":  # file was selected just return and do nothing with selection
                 return
 
