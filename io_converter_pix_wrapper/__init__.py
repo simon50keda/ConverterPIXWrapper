@@ -454,7 +454,7 @@ class ConvPIXWrapperImport(bpy.types.Operator, ImportHelper):
         description="Use ConverterPIX only for conversion of resources into SCS Project Base Path and import manually later?"
     )
 
-    filter_glob = StringProperty(default="*.scs;", options={'HIDDEN'})
+    filter_glob = StringProperty(default="*.scs;*.zip;", options={'HIDDEN'})
 
     def check(self, context):
 
