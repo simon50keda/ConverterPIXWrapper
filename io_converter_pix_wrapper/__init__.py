@@ -418,6 +418,8 @@ class ConvPIXWrapperImport(bpy.types.Operator, ImportHelper):
                                description="File paths used for importing the SCS files",
                                type=bpy.types.OperatorFileListElement)
 
+    ordered_files = []  # stores ordered list of currently selected files, first selected is first, last selected is last
+
     archives_to_use = CollectionProperty(name="Archives to Use",
                                          description="Archives that should be used on conversion/import.",
                                          type=ConvPIXWrapperArchiveToUse)
@@ -456,6 +458,22 @@ class ConvPIXWrapperImport(bpy.types.Operator, ImportHelper):
 
     def check(self, context):
 
+        # create/update ordered list of currently selected files
+
+        current_file_names = set([file.name for file in self.files])
+
+        # we can put together ordering by copying names into extra array
+        for file_name in current_file_names:
+            if file_name not in self.ordered_files:
+                self.ordered_files.append(file_name)
+
+        # similarly as adding we have to take care of removing items which are not selected anymore
+        for file_name in self.ordered_files.copy():  # work upon copy as we are removing items in this for
+            if file_name not in current_file_names:
+                self.ordered_files.remove(file_name)
+
+        # handle different actions depending on boolean modes variables
+
         if self.scs_project_path_mode:  # set SCS Project Base Path
 
             from io_scs_tools.utils import get_scs_globals
@@ -467,9 +485,9 @@ class ConvPIXWrapperImport(bpy.types.Operator, ImportHelper):
 
             curr_archives_to_use = [archive.path for archive in self.archives_to_use]
 
-            for file in self.files:
+            for file_name in self.ordered_files:
 
-                curr_filepath = path_join(self.directory, file.name)
+                curr_filepath = path_join(self.directory, file_name)
 
                 # avoid duplicates
                 if curr_filepath in curr_archives_to_use:
@@ -524,6 +542,11 @@ class ConvPIXWrapperImport(bpy.types.Operator, ImportHelper):
     def execute(self, context):
 
         archive_paths = [{"name": archive.path} for archive in self.archives_to_use]
+
+        # additionally add currently selected archives
+        for file_name in self.ordered_files:
+            archive_paths.append({"name": os.path.join(self.directory, file_name)})
+
         bpy.ops.import_mesh.converter_pix_list_and_import("INVOKE_DEFAULT", archive_paths=archive_paths, only_convert=self.only_convert)
 
         return {'FINISHED'}
@@ -545,7 +568,7 @@ class ConvPIXWrapperImport(bpy.types.Operator, ImportHelper):
         from io_scs_tools import ImportSCS
 
         files_box = self.layout.box()
-        files_box.row().label("Archives to Use:")
+        files_box.row().label("Extra Archives to Use:")
 
         is_any_archive_selected = False
         files_list_col = files_box.column(align=True)
@@ -562,7 +585,7 @@ class ConvPIXWrapperImport(bpy.types.Operator, ImportHelper):
 
         else:
 
-            files_list_col.label("No archives, at least one needed!", icon="ERROR")
+            files_list_col.label("No extra archives!", icon="INFO")
 
         # show controls of list only if sth is selected
         if is_any_archive_selected:
