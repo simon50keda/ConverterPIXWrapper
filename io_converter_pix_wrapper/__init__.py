@@ -12,8 +12,10 @@ bl_info = {
 import bpy
 import os
 import subprocess
-from urllib.request import urlretrieve
 from sys import platform
+from urllib.request import urlretrieve
+from threading import Thread
+from time import time
 from bpy.props import StringProperty, CollectionProperty, IntProperty, BoolProperty, PointerProperty
 from bpy.types import AddonPreferences
 from bpy_extras.io_utils import ImportHelper
@@ -26,6 +28,7 @@ if not os.path.isdir(CONVERTER_PIX_DIR):
     os.makedirs(CONVERTER_PIX_DIR, exist_ok=True)
 
 CONVERTER_PIX_PATH = os.path.join(CONVERTER_PIX_DIR, "converter_pix.exe")
+CONVERTER_PIX_URL = "https://github.com/mwl4/ConverterPIX/raw/master/bin/win_x86/converter_pix.exe"
 
 
 def path_join(path1, path2):
@@ -36,11 +39,25 @@ def path_join(path1, path2):
 
 
 def update_converter_pix():
-    """Downloads ConverterPIX from github and saves it to CONVERTER_PIX_PATH."""
+    """Downloads ConverterPIX from github and saves it to CONVERTER_PIX_PATH.
+    :returns: True if successfully updated; False otherwise
+    :rtype: bool
+    """
 
-    print("Downloading ConverterPIX...", end="")
-    urlretrieve("https://github.com/mwl4/ConverterPIX/raw/master/bin/win_x86/converter_pix.exe", CONVERTER_PIX_PATH)
-    print(" Done!")
+    print("Downloading ConverterPIX...")
+
+    try:
+        urlretrieve(CONVERTER_PIX_URL, CONVERTER_PIX_PATH)
+    except Exception as e:
+
+        from traceback import format_exc
+
+        trace_str = format_exc().replace("\n", "\n\t")
+        print("Unexpected %s error accured duing updating of ConverterPIX:\n\t%s\n" % (type(e).__name__, trace_str))
+        return False
+
+    print("ConverterPix updated!")
+    return True
 
 
 def run_converter_pix(args):
@@ -641,10 +658,10 @@ class ConvPIXWrapperUpdateEXE(bpy.types.Operator):
     bl_options = {'INTERNAL'}
 
     def execute(self, context):
-        try:
-            update_converter_pix()
+
+        if update_converter_pix():
             self.report({"INFO"}, "ConverterPIX file updated!")
-        except:
+        else:
             self.report({"ERROR"}, "Problem updating ConverterPIX! Try again later.")
 
         return {'FINISHED'}
@@ -659,9 +676,12 @@ def register():
 
     bpy.types.INFO_MT_file_import.append(menu_func_import)
 
-    # check if converter pix exists, otherwise download it!
-    if not os.path.isfile(CONVERTER_PIX_PATH):
-        update_converter_pix()
+    # check if converter pix exists or it's not to more than 1 day old, otherwise redownload it!
+    if not os.path.isfile(CONVERTER_PIX_PATH) or time() - os.path.getmtime(CONVERTER_PIX_PATH) > 60 * 60 * 24:
+
+        t = Thread(name="update converterpix", target=update_converter_pix)
+        t.setDaemon(True)
+        t.start()
 
 
 def unregister():
