@@ -18,9 +18,8 @@ To be able to use ConverterPIXWrapper you will also have to install **SCS Blende
 * Go to menu "**File**" -> "**Import**" -> "**SCS Models - ConverterPIX & BT (*.scs)**"
   ![Import SCS Models](/readme_images/file-import.png)
 * After file browser is opened, navigate to *.scs files of SCS Game, select ones you want to import from.
-* Next step is to add selected files to the list of used archives by clicking on "**Add Archives to List**" button (this will tell ConverterPIXWrapper which archives should be used for import):
-  ![Add Archives To List](/readme_images/select-scs-archives.png)
 * Now set the rest of the options by your liking (you can find them on the left bottom side of the file browser window):
+  * **Extra Archives to Use** - more info down below at [#additional-usage-tips]
   * **Convert only?** - property deciding if add-on will only convert selected model insted of automatically importing it afterwards
   * **SCS Project Base Path** - path where selected model will be extracted and converter. Converted resources will be found under same subfolders as they are in SCS archive.
   * Other options - the rest of the options are SCS Blender Tools import options, more about them: [here](http://modding.scssoft.com/wiki/Documentation/Tools/SCS_Blender_Tools/Import#Import_Options)
@@ -31,7 +30,13 @@ To be able to use ConverterPIXWrapper you will also have to install **SCS Blende
 * When you found a model and selected it, click button "**OK**" to start conversion/import procedure!
 
 ## Additional Usage Tips
-Used archive list additionally enables you to remove or change order of added items:
+One of extra features are **Extra Archives**. Extra archives give you ability to import from multiple archives originating from different locations on your disc.
+
+![Add Archives To List](/readme_images/select-scs-archives.png)
+
+This is very useful if you are importing from mod that is dependent on vanilla data. In that case you can search for "base.scs", select and add it to extra archives using **Add Archives to List**. After that you only search for a mod archive, select it and proced with importing.
+
+Extra archives list additionally enables you to remove or change order of added items:
 
 ![Archive List Handling](/readme_images/archive-list-handling.png)
 
