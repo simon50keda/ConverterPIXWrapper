@@ -17,9 +17,9 @@ To be able to use ConverterPIXWrapper you will also have to install **SCS Blende
 ## Usage
 * Go to menu "**File**" -> "**Import**" -> "**SCS Models - ConverterPIX & BT (*.scs)**"
   ![Import SCS Models](/readme_images/file-import.png)
-* After file browser is opened, navigate to *.scs files of SCS Game, select ones you want to import from.
+* After file browser is opened, navigate to *.scs files of SCS Game or *.zip files of any mod and select ones you want to import from.
 * Now set the rest of the options by your liking (you can find them on the left bottom side of the file browser window):
-  * **Extra Archives to Use** - more info down below at [#additional-usage-tips]
+  * **Extra Archives to Use** - storage for archives from multiple locations. More info down below at: [Additional Usage Tips](#additional-usage-tips)
   * **Convert only?** - property deciding if add-on will only convert selected model insted of automatically importing it afterwards
   * **SCS Project Base Path** - path where selected model will be extracted and converter. Converted resources will be found under same subfolders as they are in SCS archive.
   * Other options - the rest of the options are SCS Blender Tools import options, more about them: [here](http://modding.scssoft.com/wiki/Documentation/Tools/SCS_Blender_Tools/Import#Import_Options)
