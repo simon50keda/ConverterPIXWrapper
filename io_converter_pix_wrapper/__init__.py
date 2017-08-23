@@ -2,7 +2,7 @@ bl_info = {
     "name": "ConverterPIX Wrapper for conversion & import of SCS Game Models",
     "description": "Wrapper add-on to use ConvPIX within the Blender and import SCS game models with ease.",
     "author": "Simon Lusenc (50keda)",
-    "version": (1, 3),
+    "version": (1, 4),
     "blender": (2, 78, 0),
     "location": "File > Import > SCS Models - ConverterPIX & BT (*.scs)",
     "category": "Import-Export",
