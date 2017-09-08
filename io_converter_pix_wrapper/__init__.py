@@ -27,8 +27,14 @@ CONVERTER_PIX_DIR = os.path.join(bpy.utils.resource_path('USER'), "config/Conver
 if not os.path.isdir(CONVERTER_PIX_DIR):
     os.makedirs(CONVERTER_PIX_DIR, exist_ok=True)
 
-CONVERTER_PIX_PATH = os.path.join(CONVERTER_PIX_DIR, "converter_pix.exe")
-CONVERTER_PIX_URL = "https://github.com/mwl4/ConverterPIX/raw/master/bin/win_x86/converter_pix.exe"
+if platform == "linux":
+    CONVERTER_PIX_URL = "https://github.com/mwl4/ConverterPIX/raw/master/bin/linux/converter_pix"
+    CONVERTER_PIX_PATH = os.path.join(CONVERTER_PIX_DIR, "converter_pix")
+    LINE_SPLITTER = "\n"
+else:
+    CONVERTER_PIX_URL = "https://github.com/mwl4/ConverterPIX/raw/master/bin/win_x86/converter_pix.exe"
+    CONVERTER_PIX_PATH = os.path.join(CONVERTER_PIX_DIR, "converter_pix.exe")
+    LINE_SPLITTER = "\r\n"
 
 
 def path_join(path1, path2):
@@ -48,6 +54,15 @@ def update_converter_pix():
 
     try:
         urlretrieve(CONVERTER_PIX_URL, CONVERTER_PIX_PATH)
+
+        # make it executable on linux
+        if platform == "linux":
+
+            from stat import S_IEXEC, S_IXGRP
+
+            st = os.stat(CONVERTER_PIX_PATH)
+            os.chmod(CONVERTER_PIX_PATH, st.st_mode | S_IEXEC | S_IXGRP)
+
     except Exception as e:
 
         from traceback import format_exc
@@ -77,12 +92,7 @@ def run_converter_pix(args):
         print("Mac OS X not supported at the moment!")
         return -1, []
 
-    final_command = []
-
-    if platform == "linux":
-        final_command.append("wine")  # TODO: maybe better check if wine exists at all?
-
-    final_command.append(CONVERTER_PIX_PATH)
+    final_command = [CONVERTER_PIX_PATH]
     final_command.extend(args)
 
     print(final_command)
@@ -95,9 +105,9 @@ def run_converter_pix(args):
 
     # also return non-zero code if converter pix alone is reporting errors in output
     if "<error>".encode("utf-8") in result.stdout:
-        return -1, result.stdout.decode("utf-8").split("\r\n")
+        return -1, result.stdout.decode("utf-8").split(LINE_SPLITTER)
 
-    decoded_result = result.stdout.decode("utf-8").split("\r\n")
+    decoded_result = result.stdout.decode("utf-8").split(LINE_SPLITTER)
 
     for line in decoded_result:
         print(line)
