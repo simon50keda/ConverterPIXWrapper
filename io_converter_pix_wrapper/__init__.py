@@ -160,6 +160,20 @@ class ConvPIXWrapperFileEntry(bpy.types.PropertyGroup):
 class ConvPIXWrapperBrowserData(bpy.types.PropertyGroup):
     """Property group representing file browser data."""
 
+    def is_subpath_valid(self):
+        """Checks if current set subpath is valid for currently set archives.
+
+        :return: True if any dirs and files is returned; False otherwise
+        :rtype: bool
+        """
+
+        archive_paths = [archive_path.name for archive_path in self.archive_paths]
+        dirs, files = get_archive_listdir(archive_paths, self.current_subpath)
+        if len(dirs) > 0 or len(files) > 0:
+            return True
+
+        return False
+
     def update_active_entry(self, context):
         """Update function for navigation trough tree of archive:
         1. When directory is selected it advances to it and refreshes the list.
@@ -276,6 +290,9 @@ class ConvPIXWrapperListImport(bpy.types.Operator):
     bl_label = "Converter PIX Wrapper"
     bl_options = {'UNDO', 'INTERNAL'}
 
+    __static_last_model_subpath = "/"
+    __static_last_anim_subpath = "/"
+
     archive_paths = CollectionProperty(
         description="Paths to archives from which directories and files should be listed.",
         type=bpy.types.OperatorFileListElement,
@@ -314,6 +331,14 @@ class ConvPIXWrapperListImport(bpy.types.Operator):
             entry = self.anim_browser_data.archive_paths.add()
             entry.name = archive_path.name
 
+        self.model_browser_data.current_subpath = ConvPIXWrapperListImport.__static_last_model_subpath
+        if not self.model_browser_data.is_subpath_valid():
+            self.model_browser_data.current_subpath = "/"
+
+        self.anim_browser_data.current_subpath = ConvPIXWrapperListImport.__static_last_anim_subpath
+        if not self.anim_browser_data.is_subpath_valid():
+            self.anim_browser_data.current_subpath = "/"
+
         self.model_browser_data.file_extension = ".pmg"
         self.anim_browser_data.file_extension = ".pma"
 
@@ -327,6 +352,12 @@ class ConvPIXWrapperListImport(bpy.types.Operator):
     def execute(self, context):
 
         from io_scs_tools.utils import get_scs_globals
+
+        self.save_current_subpaths()
+
+        if self.model_browser_data.active_entry == -1:
+            self.report({'WARNING'}, "No active model selected, aborting import!")
+            return {'CANCELLED'}
 
         model_file_entry_name = self.model_browser_data.file_entries[self.model_browser_data.active_entry].name
         model_archive_subpath = path_join(self.model_browser_data.current_subpath, model_file_entry_name)
@@ -373,6 +404,16 @@ class ConvPIXWrapperListImport(bpy.types.Operator):
             bpy.ops.import_mesh.pim(files=[{"name": pim_import_file}], directory=pim_import_dir)
 
         return {'FINISHED'}
+
+    def save_current_subpaths(self):
+        # backup last sub-paths to return to them eventually
+        ConvPIXWrapperListImport.__static_last_model_subpath = self.model_browser_data.current_subpath
+        ConvPIXWrapperListImport.__static_last_anim_subpath = self.anim_browser_data.current_subpath
+
+        print("Saving current subpath for ConverterPIXWrapper...")
+
+    def cancel(self, context):
+        self.save_current_subpaths()
 
     def draw(self, context):
         layout = self.layout
