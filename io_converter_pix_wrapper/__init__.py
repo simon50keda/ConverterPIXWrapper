@@ -2,8 +2,8 @@ bl_info = {
     "name": "ConverterPIX Wrapper for conversion & import of SCS Game Models",
     "description": "Wrapper add-on to use ConvPIX within the Blender and import SCS game models with ease.",
     "author": "Simon Lusenc (50keda)",
-    "version": (1, 5),
-    "blender": (2, 78, 0),
+    "version": (2, 0),
+    "blender": (2, 81, 0),
     "location": "File > Import > SCS Models - ConverterPIX & BT (*.scs)",
     "category": "Import-Export",
     "support": "COMMUNITY"
@@ -13,10 +13,9 @@ import bpy
 import os
 import subprocess
 from sys import platform
-from urllib.request import urlretrieve
 from threading import Thread
 from time import time
-from bpy.props import StringProperty, CollectionProperty, IntProperty, BoolProperty, PointerProperty
+from bpy.props import StringProperty, CollectionProperty, IntProperty, BoolProperty, PointerProperty, FloatProperty
 from bpy.types import AddonPreferences
 from bpy_extras.io_utils import ImportHelper
 
@@ -53,7 +52,16 @@ def update_converter_pix():
     print("Downloading ConverterPIX...")
 
     try:
-        urlretrieve(CONVERTER_PIX_URL, CONVERTER_PIX_PATH)
+        from urllib3 import disable_warnings
+        from requests import get
+
+        # disable urllib warnings so we don't get complains over unauthorized converter pix download
+        disable_warnings()
+
+        # create unauthorized get request and download converter pix
+        result = get(CONVERTER_PIX_URL, verify=False)
+        with open(CONVERTER_PIX_PATH, "wb") as f:
+            f.write(result.content)
 
         # make it executable on linux
         if platform == "linux":
@@ -149,12 +157,24 @@ def get_archive_listdir(file_paths, current_subpath):
     return sorted(dirs), sorted(files)
 
 
+# ### PROPERTIES ###
+
+
+class ConvPIXWrapperAddonPrefs(AddonPreferences):
+    bl_idname = __name__
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column(align=True)
+        col.operator("world.converter_pix_wrapper_update_exe", icon="URL")
+
+
 class ConvPIXWrapperFileEntry(bpy.types.PropertyGroup):
     """Property group holding browser file entry data."""
 
-    do_import = BoolProperty(description="Proccess this entry for conversion/import.")
-    name = StringProperty(description="Name of the entry represeting name of the file or directory.")
-    is_dir = BoolProperty(description="Taging this entry as directory.")
+    do_import: BoolProperty(description="Proccess this entry for conversion/import.")
+    name: StringProperty(description="Name of the entry represeting name of the file or directory.")
+    is_dir: BoolProperty(description="Taging this entry as directory.")
 
 
 class ConvPIXWrapperBrowserData(bpy.types.PropertyGroup):
@@ -232,38 +252,48 @@ class ConvPIXWrapperBrowserData(bpy.types.PropertyGroup):
             entry.name = file_name
             entry.is_dir = False
 
-    multi_select = BoolProperty(
+    multi_select: BoolProperty(
         description="Can multiple files be selected?"
     )
 
-    file_extension = StringProperty(
+    file_extension: StringProperty(
         description="File extension for the files that should be listed in this browser data.",
         default="*",
     )
 
-    archive_paths = CollectionProperty(
+    archive_paths: CollectionProperty(
         description="Paths to archives from which directories and files should be listed.",
         type=bpy.types.OperatorFileListElement,
     )
 
-    current_subpath = StringProperty(
+    current_subpath: StringProperty(
         description="Current position in archive tree.",
         default="/",
     )
 
-    file_entries = CollectionProperty(
+    file_entries: CollectionProperty(
         description="Collection of file entries for current position in archive tree.",
         type=ConvPIXWrapperFileEntry,
     )
 
-    active_entry = IntProperty(
+    active_entry: IntProperty(
         description="Currently selected directory/file in browser.",
         default=-1,
         update=update_active_entry
     )
 
 
-class ConvPIXWrapperFileEntryUIListItem(bpy.types.UIList):
+class ConvPIXWrapperArchiveToUse(bpy.types.PropertyGroup):
+    """Property group holding entry data for archives to use."""
+
+    path: StringProperty(description="Path to archive.")
+    selected: BoolProperty(description="Marking this path as selected. Once selected it can be deleted or moved in the list.")
+
+
+# ### OPERATORS ###
+
+
+class CONV_PIX_WRAPPER_UL_FileEntryItem(bpy.types.UIList):
     """Class for drawing archive browser file entry."""
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index):
@@ -275,7 +305,7 @@ class ConvPIXWrapperFileEntryUIListItem(bpy.types.UIList):
         else:
             icon = "FILE_BLANK"
 
-        split_line = layout.split(percentage=0.8)
+        split_line = layout.split(factor=0.8)
         split_line.prop(item, "name", text="", emboss=False, icon=icon)
 
         if data.multi_select and not item.is_dir:
@@ -285,37 +315,46 @@ class ConvPIXWrapperFileEntryUIListItem(bpy.types.UIList):
             row.prop(item, "do_import", text="")
 
 
-class ConvPIXWrapperListImport(bpy.types.Operator):
-    bl_idname = "import_mesh.converter_pix_list_and_import"
+class CONV_PIX_WRAPPER_OT_ListImport(bpy.types.Operator):
+    bl_idname = "converter_pix_wrapper.list_and_import"
     bl_label = "Converter PIX Wrapper"
     bl_options = {'UNDO', 'INTERNAL'}
 
     __static_last_model_subpath = "/"
     __static_last_anim_subpath = "/"
+    __static_browsers_slider = 0.5
 
-    archive_paths = CollectionProperty(
+    archive_paths: CollectionProperty(
         description="Paths to archives from which directories and files should be listed.",
         type=bpy.types.OperatorFileListElement,
     )
 
-    only_convert = BoolProperty(
+    only_convert: BoolProperty(
         description="Use ConverterPIX only for conversion of resources into SCS Project Base Path and import manually later?",
     )
 
-    import_animations = BoolProperty(
+    import_animations: BoolProperty(
         name="Use Animations",
         description="Select animations for conversion and import?\n"
                     "Gives you ability to convert and import animations for selected model (use it only if you are working with animated model)."
     )
 
-    model_browser_data = PointerProperty(
+    model_browser_data: PointerProperty(
         description="Archive browser data for model selection.",
         type=ConvPIXWrapperBrowserData
     )
 
-    anim_browser_data = PointerProperty(
+    anim_browser_data: PointerProperty(
         description="Archive browser data for animations selection.",
         type=ConvPIXWrapperBrowserData
+    )
+
+    browsers_slider: FloatProperty(
+        name="Browsers Slider",
+        min=0.0,
+        max=1.0,
+        subtype='FACTOR',
+        default=0.5
     )
 
     def check(self, context):
@@ -331,11 +370,11 @@ class ConvPIXWrapperListImport(bpy.types.Operator):
             entry = self.anim_browser_data.archive_paths.add()
             entry.name = archive_path.name
 
-        self.model_browser_data.current_subpath = ConvPIXWrapperListImport.__static_last_model_subpath
+        self.model_browser_data.current_subpath = CONV_PIX_WRAPPER_OT_ListImport.__static_last_model_subpath
         if not self.model_browser_data.is_subpath_valid():
             self.model_browser_data.current_subpath = "/"
 
-        self.anim_browser_data.current_subpath = ConvPIXWrapperListImport.__static_last_anim_subpath
+        self.anim_browser_data.current_subpath = CONV_PIX_WRAPPER_OT_ListImport.__static_last_anim_subpath
         if not self.anim_browser_data.is_subpath_valid():
             self.anim_browser_data.current_subpath = "/"
 
@@ -347,13 +386,15 @@ class ConvPIXWrapperListImport(bpy.types.Operator):
         self.model_browser_data.update_active_entry(context)
         self.anim_browser_data.update_active_entry(context)
 
+        self.browsers_slider = CONV_PIX_WRAPPER_OT_ListImport.__static_browsers_slider
+
         return context.window_manager.invoke_props_dialog(self, width=500)
 
     def execute(self, context):
 
         from io_scs_tools.utils import get_scs_globals
 
-        self.save_current_subpaths()
+        self.save_current_operator_settings()
 
         if self.model_browser_data.active_entry == -1:
             self.report({'WARNING'}, "No active model selected, aborting import!")
@@ -401,39 +442,47 @@ class ConvPIXWrapperListImport(bpy.types.Operator):
             pim_import_file = model_file_entry_name[:-4] + ".pim"
             pim_import_dir = path_join(get_scs_globals().scs_project_path, self.model_browser_data.current_subpath[1:])
 
-            bpy.ops.import_mesh.pim(files=[{"name": pim_import_file}], directory=pim_import_dir)
+            bpy.ops.scs_tools.import_pim(files=[{"name": pim_import_file}], directory=pim_import_dir)
 
         return {'FINISHED'}
 
-    def save_current_subpaths(self):
+    def save_current_operator_settings(self):
         # backup last sub-paths to return to them eventually
-        ConvPIXWrapperListImport.__static_last_model_subpath = self.model_browser_data.current_subpath
-        ConvPIXWrapperListImport.__static_last_anim_subpath = self.anim_browser_data.current_subpath
+        CONV_PIX_WRAPPER_OT_ListImport.__static_last_model_subpath = self.model_browser_data.current_subpath
+        CONV_PIX_WRAPPER_OT_ListImport.__static_last_anim_subpath = self.anim_browser_data.current_subpath
 
-        print("Saving current subpath for ConverterPIXWrapper...")
+        # backup ui browsers divider value
+        CONV_PIX_WRAPPER_OT_ListImport.__static_browsers_slider = self.browsers_slider
+
+        print("Saving current settings for ConverterPIXWrapper import operator...")
 
     def cancel(self, context):
-        self.save_current_subpaths()
+        self.save_current_operator_settings()
 
     def draw(self, context):
         layout = self.layout
 
-        archive_names = [os.path.basename(archive_path.name) for archive_path in self.archive_paths]
-        layout.label("Currently working upon: %r." % archive_names)
+        # clip browsers slider to proper upper and lower values to avoid UI problems with split
+        if self.browsers_slider < 0.1 or self.browsers_slider > 0.85:
+            self.browsers_slider = min(0.85, max(0.1, self.browsers_slider))
 
-        browser_layout = layout.split(percentage=0.5)
+        archive_names = [os.path.basename(archive_path.name) for archive_path in self.archive_paths]
+        layout.label(text="Currently working upon: %r." % archive_names)
+
+        browser_layout = layout.split(factor=self.browsers_slider)
 
         left_column = browser_layout.column(align=True)
         right_column = browser_layout.column(align=True)
 
         usage_type = "convert" if self.only_convert else "convert & import"
 
-        left_column.label("Model to %s:" % usage_type)
+        # left browser
+        left_column.label(text="Model to %s:" % usage_type)
         subpath_row = left_column.row(align=True)
         subpath_row.enabled = False
         subpath_row.prop(self.model_browser_data, "current_subpath", text="")
         left_column.template_list(
-            'ConvPIXWrapperFileEntryUIListItem',
+            'CONV_PIX_WRAPPER_UL_FileEntryItem',
             list_id="ModelBrowser",
             dataptr=self.model_browser_data,
             propname="file_entries",
@@ -443,9 +492,10 @@ class ConvPIXWrapperListImport(bpy.types.Operator):
             maxrows=20,
         )
 
-        import_anim_split = right_column.split(percentage=0.9)
-        import_anim_split.label("Animations to %s:" % usage_type)
-        import_anim_row = import_anim_split.row()
+        # right browser
+        import_anim_row = right_column.row()
+        import_anim_row.label(text="Animations to %s:" % usage_type)
+        import_anim_row = import_anim_row.row()
         import_anim_row.alignment = "RIGHT"
         import_anim_row.prop(self, "import_animations", text="")
 
@@ -456,7 +506,7 @@ class ConvPIXWrapperListImport(bpy.types.Operator):
         browser_row = right_column.row(align=True)
         browser_row.enabled = self.import_animations
         browser_row.template_list(
-            'ConvPIXWrapperFileEntryUIListItem',
+            'CONV_PIX_WRAPPER_UL_FileEntryItem',
             list_id="AnimBrowser",
             dataptr=self.anim_browser_data,
             propname="file_entries",
@@ -466,63 +516,59 @@ class ConvPIXWrapperListImport(bpy.types.Operator):
             maxrows=20,
         )
 
-
-class ConvPIXWrapperArchiveToUse(bpy.types.PropertyGroup):
-    """Property group holding entry data for archives to use."""
-
-    path = StringProperty(description="Path to archive.")
-    selected = BoolProperty(description="Marking this path as selected. Once selected it can be deleted or moved in the list.")
+        # browsers slider ratio
+        layout.prop(self, "browsers_slider")
 
 
-class ConvPIXWrapperImport(bpy.types.Operator, ImportHelper):
-    bl_idname = "import_mesh.converter_pix_import"
+class CONV_PIX_WRAPPER_OT_Import(bpy.types.Operator, ImportHelper):
+    bl_idname = "converter_pix_wrapper.import"
     bl_label = "Import SCS Models - ConverterPIX & BT (*.scs)"
     bl_description = "Converts and imports selected SCS model with the help of ConvPIX and SCS Blender Tools."
     bl_options = {'UNDO', 'PRESET'}
 
-    directory = StringProperty()
+    directory: StringProperty()
 
-    files = CollectionProperty(name="Selected Files",
-                               description="File paths used for importing the SCS files",
-                               type=bpy.types.OperatorFileListElement)
+    files: CollectionProperty(name="Selected Files",
+                              description="File paths used for importing the SCS files",
+                              type=bpy.types.OperatorFileListElement)
 
     ordered_files = []  # stores ordered list of currently selected files, first selected is first, last selected is last
 
-    archives_to_use = CollectionProperty(name="Archives to Use",
-                                         description="Archives that should be used on conversion/import.",
-                                         type=ConvPIXWrapperArchiveToUse)
+    archives_to_use: CollectionProperty(name="Archives to Use",
+                                        description="Archives that should be used on conversion/import.",
+                                        type=ConvPIXWrapperArchiveToUse)
 
-    archives_to_use_mode = BoolProperty(
+    archives_to_use_mode: BoolProperty(
         default=False,
         description="Add currently selected files to list of archives to be used with ConverterPIX as bases."
     )
 
-    delete_selected_archives_mode = BoolProperty(
+    delete_selected_archives_mode: BoolProperty(
         default=False,
         description="Delete selected archives from list."
     )
 
-    move_up_selected_archives_mode = BoolProperty(
+    move_up_selected_archives_mode: BoolProperty(
         default=False,
         description="Move selected archives up in the list."
     )
 
-    move_down_selected_archives_mode = BoolProperty(
+    move_down_selected_archives_mode: BoolProperty(
         default=False,
         description="Move selected archives down in the list."
     )
 
-    scs_project_path_mode = BoolProperty(
+    scs_project_path_mode: BoolProperty(
         default=False,
         description="Set currently selected directory as SCS Project Path"
     )
 
-    only_convert = BoolProperty(
+    only_convert: BoolProperty(
         name="Only convert?",
         description="Use ConverterPIX only for conversion of resources into SCS Project Base Path and import manually later?"
     )
 
-    filter_glob = StringProperty(default="*.scs;*.zip;", options={'HIDDEN'})
+    filter_glob: StringProperty(default="*.scs;*.zip;", options={'HIDDEN'})
 
     def check(self, context):
 
@@ -615,14 +661,14 @@ class ConvPIXWrapperImport(bpy.types.Operator, ImportHelper):
         for file_name in self.ordered_files:
             archive_paths.append({"name": os.path.join(self.directory, file_name)})
 
-        bpy.ops.import_mesh.converter_pix_list_and_import("INVOKE_DEFAULT", archive_paths=archive_paths, only_convert=self.only_convert)
+        bpy.ops.converter_pix_wrapper.list_and_import("INVOKE_DEFAULT", archive_paths=archive_paths, only_convert=self.only_convert)
 
         return {'FINISHED'}
 
     def invoke(self, context, event):
 
         # quick check if BT are installed
-        if "io_scs_tools" not in context.user_preferences.addons:
+        if "io_scs_tools" not in context.preferences.addons:
             self.report({"ERROR"}, "Can't run Converter PIX Wrapper! Please install SCS Blender Tools add-on first & enable it!")
             return {'CANCELLED'}
 
@@ -631,12 +677,12 @@ class ConvPIXWrapperImport(bpy.types.Operator, ImportHelper):
 
     def draw(self, context):
 
+        from io_scs_tools import SCS_TOOLS_OT_Import
+        from io_scs_tools.internals.containers.config import AsyncPathsInit
         from io_scs_tools.utils import get_scs_globals
-        from io_scs_tools.operators.world import SCSPathsInitialization
-        from io_scs_tools import ImportSCS
 
         files_box = self.layout.box()
-        files_box.row().label("Extra Archives to Use:")
+        files_box.row().label(text="Extra Archives to Use:")
 
         is_any_archive_selected = False
         files_list_col = files_box.column(align=True)
@@ -647,13 +693,13 @@ class ConvPIXWrapperImport(bpy.types.Operator, ImportHelper):
                 path_col = row.column(align=True)
                 path_col.enabled = False
                 path_col.prop(archive, "path", text="")
-                row.prop(archive, "selected", text="", icon_only=True, icon="FILE_TICK" if archive.selected else "BLANK1")
+                row.prop(archive, "selected", text="", icon_only=True, icon="CHECKMARK" if archive.selected else "BLANK1")
 
                 is_any_archive_selected |= archive.selected
 
         else:
 
-            files_list_col.label("No extra archives!", icon="INFO")
+            files_list_col.label(text="No extra archives!", icon="INFO")
 
         # show controls of list only if sth is selected
         if is_any_archive_selected:
@@ -663,7 +709,7 @@ class ConvPIXWrapperImport(bpy.types.Operator, ImportHelper):
             row.prop(self, "move_up_selected_archives_mode", text="Up", icon="TRIA_UP")
             row.prop(self, "move_down_selected_archives_mode", text="Down", icon="TRIA_DOWN")
 
-        files_list_col.prop(self, "archives_to_use_mode", toggle=True, text="Add Archives to List", icon='SCREEN_BACK')
+        files_list_col.prop(self, "archives_to_use_mode", toggle=True, text="Add Archives to List", icon='PASTEDOWN')
 
         self.layout.box().prop(self, "only_convert")
 
@@ -685,25 +731,16 @@ class ConvPIXWrapperImport(bpy.types.Operator, ImportHelper):
             layout_box_row = layout_box_col.row(align=True)
             layout_box_row.prop(self, "scs_project_path_mode", toggle=True, text="Set Current Dir as Project Base", icon='SCREEN_BACK')
 
-            if SCSPathsInitialization.is_running():  # report running path initialization operator
+            if AsyncPathsInit.is_running():  # report running path initialization operator
                 layout_box_row = layout_box_col.row(align=True)
-                layout_box_row.label("Paths initialization in progress...")
-                layout_box_row.label("", icon='TIME')
+                layout_box_row.label(text="Paths initialization in progress...")
+                layout_box_row.label(text="", icon='TIME')
         else:
-            ImportSCS.draw(self, context)
+            SCS_TOOLS_OT_Import.draw(self, context)
 
 
-class ConvPIXWrapperAddonPrefs(AddonPreferences):
-    bl_idname = __name__
-
-    def draw(self, context):
-        layout = self.layout
-        col = layout.column(align=True)
-        col.operator("world.update_converter_pix_exe", icon="URL")
-
-
-class ConvPIXWrapperUpdateEXE(bpy.types.Operator):
-    bl_idname = "world.update_converter_pix_exe"
+class CONV_PIX_WRAPPER_OT_UpdateEXE(bpy.types.Operator):
+    bl_idname = "world.converter_pix_wrapper_update_exe"
     bl_label = "Update ConverterPIX Executable"
     bl_description = "Not sure if your ConverterPIX is up-to date? Use this button to download & update it!"
     bl_options = {'INTERNAL'}
@@ -719,13 +756,27 @@ class ConvPIXWrapperUpdateEXE(bpy.types.Operator):
 
 
 def menu_func_import(self, context):
-    self.layout.operator(ConvPIXWrapperImport.bl_idname, text="SCS Models - ConverterPIX & BT (*.scs)")
+    self.layout.operator(CONV_PIX_WRAPPER_OT_Import.bl_idname, text="SCS Models - ConverterPIX & BT (*.scs)")
+
+
+classes = (
+    ConvPIXWrapperAddonPrefs,
+    ConvPIXWrapperFileEntry,
+    ConvPIXWrapperBrowserData,
+    ConvPIXWrapperArchiveToUse,
+
+    CONV_PIX_WRAPPER_UL_FileEntryItem,
+    CONV_PIX_WRAPPER_OT_ListImport,
+    CONV_PIX_WRAPPER_OT_Import,
+    CONV_PIX_WRAPPER_OT_UpdateEXE,
+)
 
 
 def register():
-    bpy.utils.register_module(__name__)
+    for cls in classes:
+        bpy.utils.register_class(cls)
 
-    bpy.types.INFO_MT_file_import.append(menu_func_import)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 
     # check if converter pix exists or it's not to more than 1 day old, otherwise redownload it!
     if not os.path.isfile(CONVERTER_PIX_PATH) or time() - os.path.getmtime(CONVERTER_PIX_PATH) > 60 * 60 * 24:
@@ -736,9 +787,10 @@ def register():
 
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
+    for cls in classes:
+        bpy.utils.unregister_class(cls)
 
-    bpy.types.INFO_MT_file_import.remove(menu_func_import)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
 
 
 if __name__ == '__main__':
