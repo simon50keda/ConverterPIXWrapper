@@ -469,6 +469,9 @@ class CONV_PIX_WRAPPER_OT_ListImport(bpy.types.Operator):
         archive_names = [os.path.basename(archive_path.name) for archive_path in self.archive_paths]
         layout.label(text="Currently working upon: %r." % archive_names)
 
+        # browsers slider ratio
+        layout.prop(self, "browsers_slider")
+
         browser_layout = layout.split(factor=self.browsers_slider)
 
         left_column = browser_layout.column(align=True)
@@ -515,9 +518,6 @@ class CONV_PIX_WRAPPER_OT_ListImport(bpy.types.Operator):
             rows=20,
             maxrows=20,
         )
-
-        # browsers slider ratio
-        layout.prop(self, "browsers_slider")
 
 
 class CONV_PIX_WRAPPER_OT_Import(bpy.types.Operator, ImportHelper):
