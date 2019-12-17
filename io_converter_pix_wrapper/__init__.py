@@ -27,7 +27,7 @@ if not os.path.isdir(CONVERTER_PIX_DIR):
     os.makedirs(CONVERTER_PIX_DIR, exist_ok=True)
 
 if platform == "linux":
-    CONVERTER_PIX_URL = "https://github.com/mwl4/ConverterPIX/raw/master/bin/linux/converter_pix"
+    CONVERTER_PIX_URL = "https://github.com/simon50keda/ConverterPIX/raw/master/bin/linux/converter_pix"
     CONVERTER_PIX_PATH = os.path.join(CONVERTER_PIX_DIR, "converter_pix")
     LINE_SPLITTER = "\n"
 else:
