@@ -40,4 +40,4 @@ Extra archives list additionally enables you to remove or change order of added 
 
 ![Archive List Handling](/readme_images/archive-list-handling.png)
 
-To do that, you have to use selection buttons on side of each entry (green check arrow marks item as selected) and then desired actions can be executed upon them. Moving items will change the order how archives will be passed to ConverterPIX as base. First item in the list is given first, last item is given as last.
+To do that, you have to use selection buttons on side of each entry (check mark arrow marks item as selected) and then desired actions can be executed upon them. Moving items will change the order how archives will be passed to ConverterPIX as base. First item in the list is given first, last item is given as last.
