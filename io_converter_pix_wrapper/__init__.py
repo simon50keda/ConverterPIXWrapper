@@ -722,14 +722,15 @@ class CONV_PIX_WRAPPER_OT_Import(bpy.types.Operator, ImportHelper):
             # SCS Project Path
             box1 = layout.box()
             layout_box_col = box1.column(align=True)
-            layout_box_col.label('SCS Project Base Path:', icon='FILE_FOLDER')
+            layout_box_col.label(text='SCS Project Base Path:', icon='FILE_FOLDER')
+            layout_box_col.separator()
 
             layout_box_row = layout_box_col.row(align=True)
             layout_box_row.alert = not os.path.isdir(scs_globals.scs_project_path)
             layout_box_row.prop(scs_globals, 'scs_project_path', text='')
 
             layout_box_row = layout_box_col.row(align=True)
-            layout_box_row.prop(self, "scs_project_path_mode", toggle=True, text="Set Current Dir as Project Base", icon='SCREEN_BACK')
+            layout_box_row.prop(self, "scs_project_path_mode", toggle=True, text="Set Current Dir as Project Base", icon='PASTEDOWN')
 
             if AsyncPathsInit.is_running():  # report running path initialization operator
                 layout_box_row = layout_box_col.row(align=True)
