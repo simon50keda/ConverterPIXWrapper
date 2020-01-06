@@ -12,7 +12,9 @@ bl_info = {
 import bpy
 import os
 import subprocess
+import shutil
 from sys import platform
+from tempfile import mkdtemp
 from threading import Thread
 from time import time
 from bpy.props import StringProperty, CollectionProperty, IntProperty, BoolProperty, PointerProperty, FloatProperty
@@ -333,6 +335,10 @@ class CONV_PIX_WRAPPER_OT_ListImport(bpy.types.Operator):
         description="Use ConverterPIX only for conversion of resources into SCS Project Base Path and import manually later?",
     )
 
+    textures_to_base: BoolProperty(
+        description="Should textures be copied into the sibling 'base' directory, so they won't be included in mod packing?",
+    )
+
     import_animations: BoolProperty(
         name="Use Animations",
         description="Select animations for conversion and import?\n"
@@ -411,6 +417,9 @@ class CONV_PIX_WRAPPER_OT_ListImport(bpy.types.Operator):
                 if anim_file_entry.do_import:
                     anim_archive_subpaths.append(path_join(self.anim_browser_data.current_subpath, anim_file_entry.name[:-4]))
 
+        # temporarly convert to temp directory to be able to extract textures and models separately
+        export_path = mkdtemp()
+
         # put together arguments for converter pix
         args = []
 
@@ -419,7 +428,7 @@ class CONV_PIX_WRAPPER_OT_ListImport(bpy.types.Operator):
 
         args.extend(["-m", model_archive_subpath[:-4]])
         args.extend(anim_archive_subpaths)
-        args.extend(["-e", get_scs_globals().scs_project_path])
+        args.extend(["-e", export_path])
 
         # execute conversion
         retcode, stdout = run_converter_pix(args)
@@ -435,6 +444,29 @@ class CONV_PIX_WRAPPER_OT_ListImport(bpy.types.Operator):
                     self.report({'ERROR'}, line)
 
             return {'CANCELLED'}
+
+        # calculate models & textures project path
+        models_project_path = textures_project_path = get_scs_globals().scs_project_path
+        if self.textures_to_base:
+            textures_project_path = os.path.join(models_project_path, os.pardir, "base")
+
+        # distribute converted data to appropriate folder
+        for root, dirs, files in os.walk(export_path, topdown=False):
+            file_subdir = os.path.relpath(root, export_path)
+            for file in files:
+                if file.endswith(".tobj") or file.endswith(".dds") or file.endswith(".png"):
+                    file_dstdir = os.path.join(textures_project_path, file_subdir)
+                else:
+                    file_dstdir = os.path.join(models_project_path, file_subdir)
+
+                os.makedirs(file_dstdir, exist_ok=True)
+
+                src_path = os.path.join(root, file)
+                dst_path = os.path.join(file_dstdir, file)
+                shutil.move(src_path, dst_path)
+
+            # dirs cleanup - with the help of disabled topdown listing, remove empty dirs here including topmost export path
+            os.rmdir(root)
 
         # now do actual import with BT
         if not self.only_convert:
@@ -565,7 +597,14 @@ class CONV_PIX_WRAPPER_OT_Import(bpy.types.Operator, ImportHelper):
 
     only_convert: BoolProperty(
         name="Only convert?",
-        description="Use ConverterPIX only for conversion of resources into SCS Project Base Path and import manually later?"
+        description="Use ConverterPIX only for conversion of resources into SCS Project Base Path and import manually later?",
+        default=False
+    )
+
+    textures_to_base: BoolProperty(
+        name="Textures to Base?",
+        description="Should textures be copied into the sibling 'base' directory, so they won't be included in mod packing?",
+        default=False
     )
 
     filter_glob: StringProperty(default="*.scs;*.zip;", options={'HIDDEN'})
@@ -661,7 +700,10 @@ class CONV_PIX_WRAPPER_OT_Import(bpy.types.Operator, ImportHelper):
         for file_name in self.ordered_files:
             archive_paths.append({"name": os.path.join(self.directory, file_name)})
 
-        bpy.ops.converter_pix_wrapper.list_and_import("INVOKE_DEFAULT", archive_paths=archive_paths, only_convert=self.only_convert)
+        bpy.ops.converter_pix_wrapper.list_and_import("INVOKE_DEFAULT",
+                                                      archive_paths=archive_paths,
+                                                      only_convert=self.only_convert,
+                                                      textures_to_base=self.textures_to_base)
 
         return {'FINISHED'}
 
@@ -711,7 +753,9 @@ class CONV_PIX_WRAPPER_OT_Import(bpy.types.Operator, ImportHelper):
 
         files_list_col.prop(self, "archives_to_use_mode", toggle=True, text="Add Archives to List", icon='PASTEDOWN')
 
-        self.layout.box().prop(self, "only_convert")
+        settings_col = self.layout.box().column(align=True)
+        settings_col.prop(self, "only_convert")
+        settings_col.prop(self, "textures_to_base")
 
         if self.only_convert:
             scs_globals = get_scs_globals()
