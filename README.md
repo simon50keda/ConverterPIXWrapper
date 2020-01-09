@@ -21,6 +21,7 @@ To be able to use ConverterPIXWrapper you will also have to install **SCS Blende
 * Now set the rest of the options by your liking (you can find them on the left bottom side of the file browser window):
   * **Extra Archives to Use** - storage for archives from multiple locations. More info down below at: [Additional Usage Tips](#additional-usage-tips)
   * **Convert only?** - property deciding if add-on will only convert selected model insted of automatically importing it afterwards
+  * **Textures to Base?** - property deciding if textures should be copied into the sibling 'base' directory to avoid packing them into the mod when using mod packing functionality
   * **SCS Project Base Path** - path where selected model will be extracted and converter. Converted resources will be found under same subfolders as they are in SCS archive.
   * Other options - the rest of the options are SCS Blender Tools import options, more about them: [here](http://modding.scssoft.com/wiki/Documentation/Tools/SCS_Blender_Tools/Import#Import_Options)
 * Once happy with the archive list and import options, click "**Import SCS Models - ConvPIX & BT (*.scs)**" (on right upper side)
