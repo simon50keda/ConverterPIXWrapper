@@ -32,6 +32,10 @@ if platform == "linux":
     CONVERTER_PIX_URL = "https://github.com/simon50keda/ConverterPIX/raw/master/bin/linux/converter_pix"
     CONVERTER_PIX_PATH = os.path.join(CONVERTER_PIX_DIR, "converter_pix")
     LINE_SPLITTER = "\n"
+elif platform == "darwin":
+    CONVERTER_PIX_URL = "https://github.com/theHarven/ConverterPIX/raw/MacOS_binary/bin/macos/converter_pix"
+    CONVERTER_PIX_PATH = os.path.join(CONVERTER_PIX_DIR, "converter_pix")
+    LINE_SPLITTER = "\n"
 else:
     CONVERTER_PIX_URL = "https://github.com/mwl4/ConverterPIX/raw/master/bin/win_x86/converter_pix.exe"
     CONVERTER_PIX_PATH = os.path.join(CONVERTER_PIX_DIR, "converter_pix.exe")
@@ -66,7 +70,7 @@ def update_converter_pix():
             f.write(result.content)
 
         # make it executable on linux
-        if platform == "linux":
+        if platform == "linux" or platform == "darwin":
 
             from stat import S_IEXEC, S_IXGRP
 
@@ -97,10 +101,6 @@ def run_converter_pix(args):
     :return: return code and stdout from converter pix devided into lines; empty list on error or not supported OS
     :rtype:  tuple[int, list[str]]
     """
-
-    if platform == "darwin":
-        print("Mac OS X not supported at the moment!")
-        return -1, []
 
     final_command = [CONVERTER_PIX_PATH]
     final_command.extend(args)
