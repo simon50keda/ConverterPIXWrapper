@@ -472,7 +472,7 @@ class CONV_PIX_WRAPPER_OT_ListImport(bpy.types.Operator):
         if not self.only_convert:
 
             pim_import_file = model_file_entry_name[:-4] + ".pim"
-            pim_import_dir = path_join(get_scs_globals().scs_project_path, self.model_browser_data.current_subpath[1:])
+            pim_import_dir = os.path.abspath(path_join(get_scs_globals().scs_project_path, self.model_browser_data.current_subpath[1:]))
 
             bpy.ops.scs_tools.import_pim(files=[{"name": pim_import_file}], directory=pim_import_dir)
 
